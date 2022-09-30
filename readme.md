@@ -10,3 +10,7 @@ or
 
 $ sbcl -l quadtree.lisp
 ```
+
+# Gallery
+## Quadtree
+![quadtree](assets/quadtree.png "quadtree")
