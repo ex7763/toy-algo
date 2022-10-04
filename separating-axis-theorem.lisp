@@ -6,6 +6,7 @@
 ;;   (:use #:cl #:glfw #:alexandria #:trivial-main-thread))
 
 (ql:quickload :cl-glfw3)
+(ql:quickload :array-operations)
 (ql:quickload :cl-glfw3-examples)
 (in-package :cl-glfw3-examples)
 
@@ -37,11 +38,11 @@
       )))
 
 (defun draw-polygon (poly)
-  (let ((x (nth 0 (polygon-center poly)))  
-        (y (nth 1 (polygon-center poly))))
-    (gl:with-primitive :line-loop
+  (let ((x (aref (polygon-center poly) 0))  
+        (y (aref (polygon-center poly) 1)))
+    (gl:with-primitive :line-strip
       (mapcar (lambda (p)
-                (gl:vertex (+ x (point-x p)) (+ y (point-y p)) 0.0))
+                (gl:vertex (+ x (aref p 0)) (+ y (aref p 1)) 0.0))
               (polygon-points poly))
       )
     (draw-circle x y 15)
@@ -67,19 +68,132 @@
   (angle 0.0)
   )
 
+;; simple vector library
+(defun get-norm-l (v)
+  (make-array 2 :initial-contents (list (- (aref v 1)) (aref v 0)))
+  )
+(defun get-norm-r (v)
+  (make-array 2 :initial-contents (list (aref v 1) (- (aref v 0))))
+  )
+
+(defun get-length (v)
+  (sqrt 
+    ;; Sum all values in an array
+    (aops:reduce-index #'+ i (row-major-aref 
+                               (aops:each (lambda (n) (expt n 2)) v)
+                               i)))
+  )
+
+(defun dot (v0 v1)
+  (aops:vectorize-reduce #'+ (v0 v1) (* v0 v1)))
+
+(dot #(3 2) #(1 2))
+
+(get-norm-l #(1 2))
+(get-norm-r #(1 2))
+(get-length #(10 5))
+(get-length #(10 10))
+
+;; (defun matmatmul (mat0 mat1)
+;;   (aops:each-index (i j)
+;;     (aops:sum-index k
+;;       (* (aref mat0 i k) (aref mat1 k j)))))
+;; (matmatmul #2A((1 2) (3 4)) #2A ((2 3) (4 5)))
+;; (defun matvecmul (mat vec)
+;;   (aops:each-index (i j)
+;;     (aops:sum-index k
+;;       (* (aref mat i k) (aref vec j)))))
+;; (matvecmul #2A((1 2)
+;;                (3 4)) #(2 3))
+
+(defun rotate-around-point (v point angle)
+  (let ((new-v (aops:each #'- v point))
+        (rotate-matrix (make-array '(2 2)
+                                   :initial-contents (list (list (cos angle) (- (sin angle)))
+                                                           (list (sin angle) (cos angle)))))))
+  (make-array 2 :initial-contents (list (aref v 1) (- (aref v 0))))
+  )
+
+(defmethod polygon-vector-list ((self polygon))
+  (let ((points (polygon-points self))
+        (vector-list '()))
+    (dotimes (i (- (length points) 1))
+      (pushnew 
+        (aops:each #'- (nth i points) (nth (+ i 1) points))
+        vector-list))
+    vector-list))
+
+(defmethod polygon-points-coord ((self polygon))
+  (mapcar (lambda (p)
+            (aops:each #'+ (polygon-center self) p))
+          (polygon-points self)
+          ))
+
+(defmethod polygon-rotate ((self polygon) degree))
+
+(defun polygon-project-onto-axis (polygon-vector-list axis)
+  "axis: #(? ?)"
+  (let* ((poly-project-len-list (mapcar (lambda (v) (/ (dot (aops:each #'+ v axis) axis) (get-length axis)))
+                                        polygon-vector-list)))
+    poly-project-len-list  
+    )
+  )
+   
+
+(defun sat (poly0 poly1)
+  "return t if collision"
+  (let* ((poly0-vector-list (polygon-vector-list poly0)) 
+         (poly1-vector-list (polygon-vector-list poly1))
+         (axis-list (append (mapcar #'get-norm-l poly0-vector-list)   
+                            (mapcar #'get-norm-l poly1-vector-list))))
+    ;; find separating axis
+      (dolist (axis axis-list)
+        (let* ((poly0-project-onto-axis (polygon-project-onto-axis (polygon-points-coord poly0) axis)) 
+               (poly1-project-onto-axis (polygon-project-onto-axis (polygon-points-coord poly1) axis)) 
+               (poly0-min (apply #'min poly0-project-onto-axis))
+               (poly0-max (apply #'max poly0-project-onto-axis))
+               (poly1-min (apply #'min poly1-project-onto-axis))
+               (poly1-max (apply #'max poly1-project-onto-axis))
+               (result (or (> poly0-min poly1-max)
+                           (> poly1-min poly0-max)))
+               )
+          (format t "axis: ~A~%" axis)
+          (format t "~A ~A ~A ~A~%" poly0-min poly0-max poly1-min poly1-max)
+          (format t "~A~%" result)
+          (when result
+            (return-from sat nil))
+          )
+        )
+    (return-from sat t)
+    (format t "axis-list: ~A~%" axis-list)))
+
+
+
 (defun symbol-append (&rest symbols) 
   (intern (apply #'concatenate 'string 
                  (mapcar #'symbol-name symbols))))
 
 (defparameter *poly1* (make-polygon 
                         ; :center '(44 36)
-                        :center '(200 200)
-                        :points (list (make-point :x 0 :y 0)
-                                      (make-point :x 80 :y -30)
-                                      (make-point :x 100 :y 100)   
-                                      (make-point :x 40 :y 80)   
-                                      (make-point :x 0 :y 30)
-                                      )))
+                        :center #(200 200)
+                        :points (list #(0 0)
+                                      #(80 -30)
+                                      #(80 100)
+                                      #(40 80)
+                                      #(0 30)
+                                      #(0 0 ))))
+(defparameter *poly2* (make-polygon 
+                        ; :center '(44 36)
+                        :center #(300 200)
+                        :points (list #(0 0)
+                                      #(40 -30)
+                                      #(100 -10)
+                                      #(80 30)
+                                      #(30 30)
+                                      #(0 0))))
+(polygon-vector-list *poly1*)
+(sat *poly1* *poly1*)
+(sat *poly1* *poly2*)
 
 (let ((click nil))
   (defun render ()
@@ -91,14 +205,21 @@
     (when *buttons-pressed*
       (multiple-value-bind (x y) 
           (values-list (get-cursor-position))
-        (let ((poly-x (nth 0 (polygon-center *poly1*)))  
-              (poly-y (nth 1 (polygon-center *poly1*))))
+        (let ((poly-x (aref (polygon-center *poly1*) 0))  
+              (poly-y (aref (polygon-center *poly1*) 1)))
           (when (and (< (abs (- poly-x x)) 15) 
                      (< (abs (- poly-y y)) 15))
-            (setf (polygon-center *poly1*) (get-cursor-position))
-            (gl:color 0.0 1.0 0.0)))
-      ))
+            (setf (polygon-center *poly1*) (make-array 2 
+                                                       :initial-contents (get-cursor-position)))
+            ;; collision detection
+            (if (sat *poly1* *poly2*)
+                (gl:color 0.0 0.0 1.0)  
+                (gl:color 0.0 1.0 0.0)))
+          )
+        )
+      )
     (draw-polygon *poly1*)
+    (draw-polygon *poly2*)
     )
   )
 
