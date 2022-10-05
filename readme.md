@@ -14,3 +14,6 @@ $ sbcl -l quadtree.lisp
 # Gallery
 ## Quadtree
 ![quadtree](assets/quadtree.png "quadtree")
+
+## SAT
+![sat](assets/sat.gif "sat")

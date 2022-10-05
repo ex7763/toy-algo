@@ -6,7 +6,12 @@
 ;;   (:use #:cl #:glfw #:alexandria #:trivial-main-thread))
 
 (ql:quickload :cl-glfw3-examples)
-(in-package :cl-glfw3-examples)
+;(in-package :cl-glfw3-examples)
+(defpackage :quadtree
+  ;(:use :cl :cl-user :cl-glfw3 :cl-glfw3-examples)
+  (:use :cl :glfw :alexandria :trivial-main-thread)
+  (:export :main))
+(in-package :quadtree)
 
 (defconstant +screen-width+ 512)
 (defconstant +screen-height+ 512)
@@ -256,5 +261,5 @@
             do (swap-buffers)
             do (poll-events)))))
 
-(main)
+;(main)
 ;(quit)
