@@ -1,6 +1,6 @@
 (in-package :asdf-user)
 
-(defsystem "quadtree"
+(defsystem "glfw3-quadtree"
   :author "Bo-Jiun, Hsu"
   :version "0.0.1"
   :license "MIT"
