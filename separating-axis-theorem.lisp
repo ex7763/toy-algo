@@ -8,7 +8,10 @@
 (ql:quickload :cl-glfw3)
 (ql:quickload :array-operations)
 (ql:quickload :cl-glfw3-examples)
-(in-package :cl-glfw3-examples)
+(defpackage :sat
+  (:use :cl :glfw :alexandria :trivial-main-thread)
+  (:export :main))
+(in-package :sat)
 
 (defconstant +screen-width+ 512)
 (defconstant +screen-height+ 512)
@@ -157,15 +160,16 @@
                (result (or (> poly0-min poly1-max)
                            (> poly1-min poly0-max)))
                )
-          (format t "axis: ~A~%" axis)
-          (format t "~A ~A ~A ~A~%" poly0-min poly0-max poly1-min poly1-max)
-          (format t "~A~%" result)
+          ;; (format t "axis: ~A~%" axis)
+          ;; (format t "~A ~A ~A ~A~%" poly0-min poly0-max poly1-min poly1-max)
+          ;; (format t "~A~%" result)
           (when result
             (return-from sat nil))
           )
         )
     (return-from sat t)
-    (format t "axis-list: ~A~%" axis-list)))
+    ;(format t "axis-list: ~A~%" axis-list)
+    ))
 
 
 
