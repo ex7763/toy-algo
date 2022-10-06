@@ -1,4 +1,4 @@
-;;;; cl-font-test.lisp
+;;;; gl-text.lisp
 ;;;; Author: Bo-Jiun Hsu
 
 ;; (ql:quickload '(cl-opengl cl-glfw alexandria trivial-main-thread))
@@ -9,11 +9,11 @@
 (ql:quickload :zpb-ttf)
 (ql:quickload :cl-glu)
 ;(in-package :cl-glfw3-examples)
-(defpackage :cl-font-test
+(defpackage :gl-text-test
   ;(:use :cl :cl-user :cl-glfw3 :cl-glfw3-examples)
   (:use :cl :cl-user :glfw :cl-glu :alexandria :trivial-main-thread)
   (:export :main))
-(in-package :cl-font-test)
+(in-package :gl-text-test)
 
 (defconstant +screen-width+ 512)
 (defconstant +screen-height+ 512)
@@ -168,11 +168,11 @@
       (draw-string font-loader "Hello Lisp" :size 54 :filled t)
       )
     (gl:with-pushed-matrix
-      (gl:translate 20 32 0)
+      (gl:translate 50 32 0)
       (gl:scale 1 -1 1)
       (setf now-time (%glfw:get-time))
-      (setf fps (+ (* fps 0.95)
-                   (* (/ 1 (- now-time last-time)) 0.05)))
+      (setf fps (+ (* fps 0.99)
+                   (* (/ 1 (- now-time last-time)) 0.01)))
       (draw-string font-loader (format nil "~,0f" fps) :size 32 :filled t)
       (setf last-time now-time)
       )
@@ -216,9 +216,21 @@
 (defun main ()
   ;; Graphics calls on OS X must occur in the main thread
   (with-body-in-main-thread ()
-    (with-init-window (:title "Quad Tree" :width +screen-width+ :height +screen-height+)
+    (with-init-window (:title "OpenGL Text" :width +screen-width+ :height +screen-height+
+                       ;;; Enable higher OpenGL version
+                       ;; :context-version-major 3
+                       ;; :context-version-minor 2
+                       ;; :opengl-profile :opengl-core-profile
+                       ;; :opengl-forward-compat t
+                       ;;; ex7763/cl-glfw3
+                       ;; :scale-to-monitor t
+                       ;; :cocoa-retina-framebuffer nil
+                       ;; :cocoa-graphics-switching nil
+                       )
+      (%glfw:swap-interval 0)  ; Disable Vsync (0)
       (set-key-callback 'quit-on-escape)
       (set-mouse-button-callback 'mouse-callback)
+
 
       ;; Callback for window resize events
       (set-window-size-callback 'update-viewport)
