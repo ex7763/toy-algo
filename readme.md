@@ -17,3 +17,6 @@ $ sbcl -l quadtree.lisp
 
 ## SAT
 ![sat](assets/sat.gif "sat")
+
+## Force-directed graph
+![force-directed-graph](assets/force-directed-graph.gif "force-directed graph")

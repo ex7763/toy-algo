@@ -7,13 +7,19 @@
 
 (ql:quickload :cl-glfw3)
 (ql:quickload :cl-glfw3-examples)
-(ql:quickload :zpb-ttf)
-(ql:quickload :cl-glu)
 (ql:quickload :magicl)
-;(in-package :cl-glfw3-examples)
+
 (defpackage :force-directed-graph
-  ;(:use :cl :cl-user :cl-glfw3 :cl-glfw3-examples)
-  (:use :cl :cl-user :glfw :cl-glu :alexandria :trivial-main-thread)
+  (:use :cl :cl-user :glfw :alexandria :trivial-main-thread)
+  (:import-from :magicl
+                :tref
+                :from-list
+                :zeros
+                :.+
+                :.- 
+                :.*
+                :./
+  )
   (:export :main))
 (in-package :force-directed-graph)
 
@@ -34,7 +40,6 @@
   ))
 
 (defun draw-circle (vec r &optional (num-points 16))
-  (gl:line-width 1)
   (let ((x0 (magicl:tref vec 0)) 
         (y0 (magicl:tref vec 1)))
     (gl:with-primitive :line-loop
@@ -58,6 +63,7 @@
   )
 
 (defun draw-vertex (v)
+  ; (gl:line-width 1.0)
   (draw-circle (magicl:.* (vertex-pos v)
                           (magicl:from-list (list +screen-width+ +screen-height+) '(2)))
                (vertex-value v)))
@@ -76,39 +82,116 @@
          (x1 (magicl:tref pos-u 0))
          (y1 (magicl:tref pos-u 1))
          )
-    (gl:line-width (/ (edge-w e) 2))
+    ; (gl:line-width (/ (edge-w e) 2))
     (draw-line x0 y0 x1 y1)))
 
-(defparameter *num-node* 7)
-(defparameter *vertex-list* (list (make-vertex :pos (magicl:rand '(2))) 
-                                  (make-vertex :pos (magicl:rand '(2))) 
-                                  (make-vertex :pos (magicl:rand '(2))) 
-                                  (make-vertex :pos (magicl:rand '(2))) 
-                                  (make-vertex :pos (magicl:rand '(2))) 
-                                  (make-vertex :pos (magicl:rand '(2))) 
-                                  (make-vertex :pos (magicl:rand '(2)))))
+(defparameter *num-node* 40)
+(defparameter *num-edges* (* *num-node* 3))
+(defparameter *num-center* 3)
+;; (defparameter *vertex-list* (mapcar (lambda (_)
+;;                                           (make-vertex :pos (.* (.- (magicl:rand '(2)) 0.5) 2)))
+;;                                   (range *num-node*)))
+(defparameter *vertex-list* (mapcar (lambda (_)
+                                          (make-vertex :pos (magicl:rand '(2))))
+                                  (range *num-node*)))
 (defparameter *edge-list* (mapcar (lambda (_)
-                                          (make-edge :v (nth (random *num-node*) *vertex-list*)
+                                          (make-edge :v (nth (random *num-center*) *vertex-list*)
                                                      :u (nth (random *num-node*) *vertex-list*)
                                                      :w (random 10)))
-                                  (range 10)))
-(write *edge-list*)
+                                  (range *num-edges*)))
+; (write *edge-list*)
 
-(defun force-directed-graph ()
-  (let ((temperature 10))
-    (dotimes (i 100)
+(defun norm-vec (vec)
+  (let ((n (magicl:norm vec)))
+    (if (= n 0)
+        vec
+        (magicl:./ vec n))))
+
+
+(magicl:norm (magicl:from-list '(1 1) '(2)))
+(norm-vec (magicl:from-list '(1.0 1.0) '(2)))
+(norm-vec (magicl:zeros '(2)))
+
+(defun attractive-force (x &optional (k 20.1))
+  (/ (expt x 2) k))
+
+(defun repulsive-force (x &optional (k 0.01))
+  (if (= x 0)
+      0
+      (/ (expt k 2) x)))
+
+(attractive-force (magicl:norm (magicl:from-list '(1 1) '(2))))
+(repulsive-force (magicl:norm (magicl:from-list '(1 1) '(2))))
+
+(magicl:.* (norm-vec (magicl:rand '(2)))
+           (repulsive-force (magicl:norm (magicl:from-list '(1 1) '(2)))))
+
+(defun reset-node ()
+  (dolist (e *edge-list*)
+    (let ((v (edge-v e))
+          (u (edge-u e)))
+      (setf (vertex-pos v) (magicl:rand '(2)))
+      (setf (vertex-pos u) (magicl:rand '(2)))
+      ;; (setf (vertex-pos v) (.* (.- (magicl:rand '(2)) 0.5) 2))
+      ;; (setf (vertex-pos u) (.* (.- (magicl:rand '(2)) 0.5) 2))
+      )
+    ))
+; (reset-node)
+(magicl:norm (from-list '(2 2) '(2)))
+
+(defun force-directed-graph (&optional (iterantions 100))
+  (let ((temperature 0.05d0))
+    (dotimes (i iterantions)
+      ;; replulsive forces
       (dolist (v *vertex-list*)
-        (setf (vertex-disp v) 0)
+        (setf (vertex-disp v) (magicl:zeros '(2)))
         (dolist (u *vertex-list*)
           (let ((d (magicl:.- (vertex-pos v) (vertex-pos u))))
-            (setf (vertex-disp v) ))))
+            (setf (vertex-disp v)  
+                  (magicl:.+ (vertex-disp v)
+                             (magicl:.* (norm-vec d) (repulsive-force (magicl:norm d)))))
+            ))
+        )
+      ;; attractive forces
+      (dolist (e *edge-list*)
+        (let* ((v (edge-v e))
+               (u (edge-u e))
+               (d (magicl:.- (vertex-pos v) (vertex-pos u))))
+          (setf (vertex-disp (edge-v e))
+                (magicl:.- (vertex-disp (edge-v e))
+                           (magicl:.* (norm-vec d) (attractive-force (magicl:norm d)))))
+          (setf (vertex-disp (edge-u e))
+                (magicl:.+ (vertex-disp (edge-u e))
+                           (magicl:.* (norm-vec d) (attractive-force (magicl:norm d)))))
+          ))
+      ;; apply
+      (dolist (v *vertex-list*)
+        (let ((d (vertex-disp v))
+              (pos (vertex-pos v)))
+          (setf (vertex-pos v) (magicl:.+ (vertex-pos v)
+                                          (magicl:.* (norm-vec d)
+                                                     (min (magicl:norm d) temperature))))
+          ;; (setf (vertex-pos v) (magicl:.+ (vertex-pos v)
+          ;;                                 (magicl:.* (norm-vec d) (magicl:norm d))))
+          (setf (tref (vertex-pos v) 0) (min 1.0d0
+                                             (max 0.0d0
+                                                  (tref (vertex-pos v) 0))))
+          (setf (tref (vertex-pos v) 1) (min 1.0d0
+                                             (max 0.0d0
+                                                  (tref (vertex-pos v) 1))))
+          ))
       )))
+
+*vertex-list*
+; (force-directed-graph)
+; (reset-node)
 
 (let* ((click nil))
   (defun render ()
     (gl:clear :color-buffer)
     (gl:color 1.0 0.0 0.0)
 
+    (force-directed-graph 3)
     ;; draw vertex and edge
     (dolist (e *edge-list*)
       (gl:color 1.0 0.0 0.0)
@@ -147,6 +230,11 @@
   (gl:load-identity)
   ;; 將座標從(-1, -1) (1, 1,)轉成(0, 0) (screen width, screent height)
   (gl:ortho 0 +screen-width+ +screen-height+ 0 0 1)
+
+  ;(gl:ortho (- +screen-width+) +screen-width+ +screen-height+ (- +screen-height+) 0 1)
+
+  ;; (gl:ortho 0 (/ +screen-width+ 2) (/ +screen-height+ 2)
+  ;;           (- (/ +screen-width+ 2)) (- (/ +screen-height+ 2))  1)
 
   ;(gl:matrix-mode :modelview)
   ;(gl:load-identity)
