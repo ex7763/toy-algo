@@ -23,8 +23,8 @@
   (:export :main))
 (in-package :force-directed-graph)
 
-(defconstant +screen-width+ 512)
-(defconstant +screen-height+ 512)
+(defconstant +screen-width+ 800)
+(defconstant +screen-height+ 800)
 
 (defparameter *keys-pressed* nil)
 (defparameter *buttons-pressed* nil)
