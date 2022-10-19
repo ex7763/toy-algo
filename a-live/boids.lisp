@@ -23,15 +23,20 @@
   (:export :main))
 (in-package :boids)
 
-(defconstant +screen-width+ 800)
-(defconstant +screen-height+ 800)
+(defconstant +screen-size+ 800)
+(defconstant +screen-width+ +screen-size+)
+(defconstant +screen-height+ +screen-size+)
 
 (defparameter *keys-pressed* nil)
 (defparameter *buttons-pressed* nil)
 
 (defparameter *boids-list* '())
 
-(defparameter *boids-velocity-limit* 5.0)
+(defparameter *boids-velocity-min-limit* (* 0.0005 +screen-size+))
+(defparameter *boids-velocity-max-limit* (* 0.003 +screen-size+))
+(defparameter *cohesion-distance* (* 0.5 +screen-size+))
+(defparameter *separation-distance* (* 0.10 +screen-size+))
+(defparameter *aligment-distance* (* 0.1 +screen-width+))
 
 (defun draw-line (x0 y0 x1 y1)
   (gl:with-primitive :lines
@@ -94,44 +99,65 @@
 ;;;; Alignment: steer towards the average heading of local flockmates
 ;;;; Cohesion: steer to move towards the average position (center of mass) of local flockmates
 (defun separation-rule (boids boids-list)
-  ;;; TODO
-  (.-
-    (reduce #'.+
-            (mapcar #'(lambda (other-boids)
-                        (if (< (magicl:norm (.- (pos boids) 
-                                                (pos other-boids)))
-                               200)
-                            (.- (pos boids) (pos other-boids))
-                            (zeros '(2) :type 'single-float)))
-                    boids-list))
-    (zeros '(2) :type 'single-float)) 
+  (reduce #'.+
+          (mapcar #'(lambda (other-boids)
+                      (let ((vec (.- (pos boids) (pos other-boids))))
+                        (if (< (magicl:norm vec)
+                               *separation-distance*)
+                            vec
+                            (zeros '(2) :type 'single-float))))
+                  boids-list))
   )
+
+(magicl:norm (magicl:from-list '(-1 -1) '(2)))
 
 (separation-rule (make-instance 'boids) (create-boids-list 5))
 
+;; (defun alignment-rule (boids mean-of-velocity)
+     ;;   (.- mean-of-velocity (vel boids)))
 (defun alignment-rule (boids boids-list)
-  (./ 
-    (.+ 
-      (./ (reduce #'.+ 
-                  (mapcar #'(lambda (other-boids)
-                              (vel other-boids)
-                              )
-                          boids-list))
-          (length boids-list)) 
-      (vel boids)
+  (let ((count 1))
+    (./
+      (reduce #'.+
+              (mapcar #'(lambda (other-boids)
+                          (let ((vec (.- (pos boids) (pos other-boids))))
+                            (if (< (magicl:norm vec)
+                                   *aligment-distance*)
+                                (vel other-boids)
+                                (zeros '(2) :type 'single-float))))
+                      boids-list))
+      count
       )
-    8.0)
+    )
   )
 
-(defun cohesion-rule (boids COM)
-  (./ (.- COM (pos boids))
-    100))
+;; (defun cohesion-rule (boids COM)
+     ;;   (.- COM (pos boids)))
+(defun cohesion-rule (boids boids-list)
+  (let ((count 0))
+    (.- 
+      (./ (reduce #'.+
+                  (mapcar #'(lambda (other-boids)
+                              (let ((vec (.- (pos other-boids) (pos boids))))
+                                (if (< (magicl:norm vec)
+                                       *cohesion-distance*)
+                                    (progn (incf count)
+                                           (pos boids))
+                                    (zeros '(2) :type 'single-float))))
+                          boids-list))
+          count)
+      (pos boids) 
+      )
+    )
+  )
 
 (defun limit-velocity (boids)
   (let ((norm (magicl:norm (vel boids)))
         (norm-vec (magicl:normalize (vel boids))))
     (setf (vel boids)
-          (.* norm-vec (min norm *boids-velocity-limit*)))
+          (.* norm-vec (max (min norm
+                                 *boids-velocity-max-limit*)
+                            *boids-velocity-min-limit*)))
     )
   )
 
@@ -141,32 +167,50 @@
                            boids-list))
       (length boids-list)))
 
-(defun update-boids (boids boids-list COM)
-  (let* ((alignment (alignment-rule boids boids-list))
-         (cohesion (cohesion-rule boids COM))
-         (separation (.* 0.1 (separation-rule boids boids-list)))
+(defun mean-of-velocity (boids-list)
+  (./ (reduce #'.+ (mapcar #'(lambda (boids)
+                               (vel boids))
+                           boids-list))
+      (length boids-list)))
 
-         (alignment (zeros '(2) :type 'single-float))
-         (cohesion (zeros '(2) :type 'single-float))
-         ;; (separation (zeros '(2) :type 'single-float))
-         (all (.+ alignment cohesion separation))
-    )
+(let ((top-level *standard-output*))
+  (defun update-boids (boids boids-list COM mean-of-velocity)
+    (let* ((cohesion (.* 2e+4 ;(* 0.2 +screen-size+)
+                         (cohesion-rule boids boids-list)))
+           (separation (.* 2e+4
+                           (separation-rule boids boids-list)))
+           (alignment (.* 0.1
+                          (alignment-rule boids boids-list))) 
 
-    (setf (vel boids) (.+ (vel boids) all))
-    (limit-velocity boids)
-    (setf (pos boids) (magicl:map #'(lambda (pos)
-                                      (mod pos +screen-width+))
-                                  (.+ (pos boids) (vel boids))))))
+           ;; (cohesion (zeros '(2) :type 'single-float))
+           ;(alignment (zeros '(2) :type 'single-float))
+           ;(separation (zeros '(2) :type 'single-float))
+
+           (acc (.+ alignment cohesion separation))
+           )
+      ;; (if (> (magicl:norm separation) 0)
+      ;;              (format top-level "~A~%" separation))
+;      (if (> (magicl:norm cohesion) 0)
+;                  (format top-level "~A~%" cohesion))
+      ;(format top-level "~A~%" acc)
+
+      (setf (vel boids) (.+ (vel boids) acc))
+      (limit-velocity boids)
+      (setf (pos boids) (magicl:map #'(lambda (pos)
+                                        (mod pos +screen-width+))
+                                    (.+ (pos boids) (vel boids)))))))
 
 (defun draw-boids-list (boids-list)
   (mapcar #'(lambda (boids)
               (draw-boids boids))
           boids-list))
 
+
 (defun update-boids-list (boids-list)
-  (let ((COM (center-of-mass boids-list)))
+  (let ((COM (center-of-mass boids-list))
+        (mean-of-velocity (mean-of-velocity boids-list)))
     (mapcar #'(lambda (boids)
-                (update-boids boids boids-list COM))
+                (update-boids boids boids-list COM mean-of-velocity))
             boids-list)) 
   )
 
