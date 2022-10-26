@@ -12,11 +12,7 @@ $ sbcl -l quadtree.lisp
 ```
 
 # Gallery
-## Quadtree
-![quadtree](assets/quadtree.png "quadtree")
+|Quadtree|SAT|Force-directed graph|
+|--|--|--|
+|<img src="assets/quadtree.png" width="256"></img> | <img src="assets/sat.gif" width="256"></img>|<img src="assets/force-directed-graph.gif" width="256"></img>|
 
-## SAT
-![sat](assets/sat.gif "sat")
-
-## Force-directed graph
-![force-directed-graph](assets/force-directed-graph.gif "force-directed graph")
