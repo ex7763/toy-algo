@@ -23,7 +23,7 @@
   (:export :main))
 (in-package :boids)
 
-(defconstant +screen-size+ 800)
+(defconstant +screen-size+ 512)
 (defconstant +screen-width+ +screen-size+)
 (defconstant +screen-height+ +screen-size+)
 
