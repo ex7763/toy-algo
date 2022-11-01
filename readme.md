@@ -16,3 +16,6 @@ $ sbcl -l quadtree.lisp
 |--|--|--|
 |<img src="assets/quadtree.png" width="256"></img> | <img src="assets/sat.gif" width="256"></img>|<img src="assets/force-directed-graph.gif" width="256"></img>|
 
+|Boids|
+|--|
+|<img src="assets/boids.gif" width="256"></img> |
